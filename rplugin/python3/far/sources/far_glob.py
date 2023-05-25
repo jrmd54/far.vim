@@ -5,6 +5,35 @@ import pathlib
 import re
 from os.path import expanduser
 
+def parse_or(rules_origin):
+    """
+    Recursively parse all OR (|) blocks in given rules & produce all possible combinations
+    Does not support nested OR blocks
+    Example:
+    input = [".*(cpp|hpp|py).(c|h|hs).*"]
+    output = ['.*cpp.c.*', '.*hpp.c.*', '.*py.c.*', '.*cpp.h.*', '.*hpp.h.*', '.*py.h.*', '.*cpp.hs.*', '.*hpp.hs.*', '.*py.hs.*']
+    """
+    # original draft: \(cpp\|hpp\) instead of (cpp|hpp)
+    # but cannot put escaped characters in file_mask
+    #regex = "(?P<pre>.*)(?P<or>\\\\\((\w+\\\\\|)*\w+\\\\\))(?P<post>.*)"
+    regex = "(?P<pre>.*)(?P<or>\((\w+\|)*\w+\))(?P<post>.*)"
+    rgx = re.compile(regex)
+    new_rules = []
+    added_new_rule = False
+    for rule in rules_origin:
+        m = rgx.search(rule)
+        if m:
+            #elts = m.group('or')[2:-2].split('\\|')
+            elts = m.group('or')[1:-1].split('|')
+            for elt in elts:
+                new_rules.append(m.group('pre') + elt + m.group('post'))
+            added_new_rule = True
+        else:
+            new_rules.append(rule)
+    if not added_new_rule:
+        return new_rules
+    return parse_or(new_rules)
+
 def proc(rules_origin):
     '''
     input  -> output
@@ -19,6 +48,7 @@ def proc(rules_origin):
     under root: /xx    -> xx
     anywhere:   xx     -> **/xx, **/xx/**/*
     '''
+    rules_origin = parse_or(rules_origin)
     rules = []
     for rule_origin in rules_origin:
         rule = rule_origin
@@ -128,7 +158,7 @@ def far_glob(root, rules, ignore_rules):
         if not (f in ignore_files and f not in exception_ignore_files)
     ]
 
-    return files
+    return sorted(files)
 
 def rg_ignore_globs(files, as_str=True):
     ignored = {
