@@ -101,6 +101,9 @@ def load_ignore_rules(file_path):
         with open(expanduser(file_path), 'r') as f:
             for line in f:
                 line = line.strip()
+                # skip commented lines (allow editing of .farignore file on-the fly, depending of current project)
+                if len(line) >= 2 and line[:2] == '//':
+                    continue
                 if line == '' or re.search(r'^\s*#', line):
                     continue
                 ignore_rules.append(line)
