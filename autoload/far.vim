@@ -578,33 +578,60 @@ function! far#jump_buffer_under_cursor() abort "{{{
     let new_win = 1
     let fname = ctxs[1].fname
     let bufnr = bufnr(fname)
-    if bufnr > 0
-        for winnr in range(1, winnr('$'))
-            if winbufnr(winnr) == bufnr && !getwinvar(winnr, 'far_preview_win', 0)
-                call win_gotoid(win_getid(winnr))
-                let new_win = 0
-                break
-            endif
-        endfor
-    endif
+
+    " If the target corresponds to a buffer that is already open: jump to this window (instead of jumping to the parent window)
+    " if bufnr > 0
+    "     for winnr in range(1, winnr('$'))
+    "         if winbufnr(winnr) == bufnr && !getwinvar(winnr, 'far_preview_win', 0)
+    "             call win_gotoid(win_getid(winnr))
+    "             let new_win = 0
+    "             break
+    "         endif
+    "     endfor
+    " endif
+
+    " Open in parent window (i.e. window from which Far was called)
     if g:far#open_in_parent_window && new_win == 1
         let win_params = b:win_params
+        " parent_bufnr: parent buffer
         let parent_buffnr = win_params.parent_buffnr
         if parent_buffnr >= 0
+            " parent_winnr: window id containing parent buffer (only checks windows of current tab)
             let parent_winnr = bufwinnr(parent_buffnr)
-            if parent_winnr != -1 && !getbufinfo(parent_buffnr)[0].changed
+            " Check if parent buffer still opened in a window, and if no change is pending in it,
+            "   AND if buffer of parent window is linked to either an existing file or the unnamed buffer (i.e. invalid parent if nerdtree window, far window, etc...)
+            if parent_winnr != -1 && !getbufinfo(parent_buffnr)[0].changed && (bufname(parent_buffnr) == '' || filereadable(bufname(parent_buffnr)))
+                " => Open target in parent buffer
                 let new_win = 0
                 exe parent_winnr . 'wincmd w'
                 exe 'edit '.fname
                 let win_params.parent_buffnr = bufnr()
+            else
+                " => Open new vertical window and open target in a new buffer in this new window
+                let new_win = 0
+                "let current_win_id = winnr()  " not currently used
+                " Open a new empty vertical window on the left of current window (i.e. Far window)
+                leftabove vsplit | enew
+                let new_buf_id_in_new_win = bufnr()
+                " Need to switch back to previous window (Far window) cf b:win_params only exist here
+                wincmd p
+                " Far window now consider the new window to be its parent
+                " -> b:win_params: where info about parent window of current Far window is stored
+                let b:win_params.parent_buffnr = new_buf_id_in_new_win
+                " Go back to new (empty) window
+                wincmd p
+                " Open target file in new window
+                exe 'edit '.fname
+                " as above, NEED to update parent buffer id cf opening a file changed it!
+                let win_params.parent_buffnr = bufnr()
             endif
         endif
     endif
-    if new_win
-        let cmd = bufnr != -1 ? 'buffer '.bufnr : 'edit '.fname
-        call far#tools#log('jump wincmd: '.cmd)
-        exec cmd
-    endif
+    " if new_win
+    "     let cmd = bufnr != -1 ? 'buffer '.bufnr : 'edit '.fname
+    "     call far#tools#log('jump wincmd: '.cmd)
+    "     exec cmd
+    " endif
     if len(ctxs) == 3
         exec 'norm! '.ctxs[2].lnum.'gg0'.(ctxs[2].cnum-1).'lzv'
     endif
