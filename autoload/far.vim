@@ -1123,6 +1123,30 @@ endfunction
 "}}}
 
 function! far#find(far_params, xargs) "{{{
+    " Check if Far window is already opened, if so, close it and reopen it
+    for win in range(1, winnr('$'))
+        let buf = winbufnr(win)
+        if buf != -1
+            let bname = bufname(buf)
+            echo
+            if (bname =~ '^FAR.*') && !filereadable(bufname(buf))
+                " An existing FAR window is already opened!
+                " ..must go to FAR window to obtain preview window id
+                call win_gotoid(win)
+                " 'augroup faraugroup' that should hide preview window on far_window deletion does not trigger here, re-using augroup code
+                if exists('b:far_preview_winid') && win_id2win(b:far_preview_winid) > 0
+                    exec win_id2win(b:far_preview_winid).'hide'
+                endif
+                " go back to original window
+                wincmd p
+                " close window
+                execute win .'wincmd c'
+                " close buffer
+                exec 'bwipeout' . buf
+            endif
+        endif
+    endfor
+
     call far#tools#log('far#find('.string(a:far_params).','.string(a:xargs).')')
 
     let far_params = extend(copy(a:far_params), s:create_far_params())
