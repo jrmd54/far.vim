@@ -174,7 +174,7 @@ function! s:create_win_params() abort
     \   'result_preview': exists('g:far#result_preview')? g:far#result_preview : 1,
     \   'enable_replace': 1,
     \   'mode_prompt': 0,
-    \   'parent_buffnr': '',
+    \   'parent_winid': '',
     \   }
 endfunction
 
@@ -593,42 +593,41 @@ function! far#jump_buffer_under_cursor() abort "{{{
     " Open in parent window (i.e. window from which Far was called)
     if g:far#open_in_parent_window && new_win == 1
         let win_params = b:win_params
-        " parent_bufnr: parent buffer
-        let parent_buffnr = win_params.parent_buffnr
-        if parent_buffnr >= 0
-            " parent_winnr: window id containing parent buffer (only checks windows of current tab)
-            let parent_winnr = bufwinnr(parent_buffnr)
-            let preview_winnr = -1
+        let parent_winid = win_params.parent_winid
+        " NOTE: windows have ids and numbers, but buffers only have numbers
+        let parent_buffnr = winbufnr(parent_winid)
+        if parent_winid >= 0
+            let preview_winid = -1
             if exists('b:far_preview_winid')
-                let preview_winnr = win_id2win(b:far_preview_winid)
+                let preview_winid = b:far_preview_winid
             endif
+            " win_id2win: return windows number (1,2,3...) associated to windows id; returns 0 if windows does not exist in current tab
+            " NOTE: winnr: unique number (for current tab) associated to each windows, depending of the windows position (changing the position of a windows change its window id)
+            "       winid: unique number (for current tab) associated to each windows, does not depend/change based on the windows position
+            let parent_winnr = win_id2win(parent_winid)
             " Check if parent buffer still opened in a window, and if no change is pending in it,
             "   AND if buffer of parent window is linked to either an existing file or the unnamed buffer (i.e. invalid parent if nerdtree window, far window, etc...)
             "   AND if parent window is NOT the preview window (cf if original parent window is closed and current preview shows same buffer as parent, far goto to this buffer will open in preview window...)
-            if parent_winnr != -1 && !getbufinfo(parent_buffnr)[0].changed && (bufname(parent_buffnr) == '' || filereadable(bufname(parent_buffnr))) && parent_winnr != preview_winnr
+            if parent_winnr != 0 && !getbufinfo(parent_buffnr)[0].changed && (bufname(parent_buffnr) == '' || filereadable(bufname(parent_buffnr))) && parent_winid != preview_winid
                 " => Open target in parent buffer
                 let new_win = 0
-                exe parent_winnr . 'wincmd w'
+                call win_gotoid(parent_winid)
                 exe 'edit '.fname
-                let win_params.parent_buffnr = bufnr()
             else
                 " => Open new vertical window and open target in a new buffer in this new window
                 let new_win = 0
-                "let current_win_id = winnr()  " not currently used
                 " Open a new empty vertical window on the left of current window (i.e. Far window)
                 leftabove vsplit | enew
-                let new_buf_id_in_new_win = bufnr()
+                let new_winid = win_getid()
                 " Need to switch back to previous window (Far window) cf b:win_params only exist here
                 wincmd p
                 " Far window now consider the new window to be its parent
                 " -> b:win_params: where info about parent window of current Far window is stored
-                let b:win_params.parent_buffnr = new_buf_id_in_new_win
+                let b:win_params.parent_winid = new_winid
                 " Go back to new (empty) window
                 wincmd p
                 " Open target file in new window
                 exe 'edit '.fname
-                " as above, NEED to update parent buffer id cf opening a file changed it!
-                let win_params.parent_buffnr = bufnr()
             endif
         endif
     endif
@@ -1961,12 +1960,11 @@ function! far#close_far_buff() abort range "{{{
         exec 'silent bd! '.join(b:temp_files, ' ')
     endif
 
-    let parent_buffnr = b:win_params.parent_buffnr
+    let parent_winid = b:win_params.parent_winid
     bdelete
 
-    let winnr = bufwinnr(parent_buffnr)
-    if winnr != -1
-        exe winnr . "wincmd w"
+    if parent_winid != -1
+        exe parent_winid . "wincmd w"
     endif
 endfunction
 " }}}
@@ -1974,7 +1972,7 @@ endfunction
 function! s:open_far_buff(far_ctx, win_params) abort "{{{
     call far#tools#log('open_far_buff('.string(a:win_params).')')
 
-    let parent_buffnr = bufnr('%')
+    let parent_winid = win_getid()
     " let parent_buff_path = expand('%:p')
     let fname = printf(s:far_buffer_name, s:buffer_counter)
     let bufnr = bufnr(fname)
@@ -2001,7 +1999,7 @@ function! s:open_far_buff(far_ctx, win_params) abort "{{{
     setlocal cursorline
     setfiletype far
 
-    let a:win_params['parent_buffnr'] = parent_buffnr
+    let a:win_params['parent_winid'] = parent_winid
     call setbufvar(bufnr, 'win_params', a:win_params)
 
     if a:win_params.mode_prompt
