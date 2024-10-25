@@ -598,9 +598,14 @@ function! far#jump_buffer_under_cursor() abort "{{{
         if parent_buffnr >= 0
             " parent_winnr: window id containing parent buffer (only checks windows of current tab)
             let parent_winnr = bufwinnr(parent_buffnr)
+            let preview_winnr = -1
+            if exists('b:far_preview_winid')
+                let preview_winnr = win_id2win(b:far_preview_winid)
+            endif
             " Check if parent buffer still opened in a window, and if no change is pending in it,
             "   AND if buffer of parent window is linked to either an existing file or the unnamed buffer (i.e. invalid parent if nerdtree window, far window, etc...)
-            if parent_winnr != -1 && !getbufinfo(parent_buffnr)[0].changed && (bufname(parent_buffnr) == '' || filereadable(bufname(parent_buffnr)))
+            "   AND if parent window is NOT the preview window (cf if original parent window is closed and current preview shows same buffer as parent, far goto to this buffer will open in preview window...)
+            if parent_winnr != -1 && !getbufinfo(parent_buffnr)[0].changed && (bufname(parent_buffnr) == '' || filereadable(bufname(parent_buffnr))) && parent_winnr != preview_winnr
                 " => Open target in parent buffer
                 let new_win = 0
                 exe parent_winnr . 'wincmd w'
