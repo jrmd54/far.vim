@@ -468,6 +468,11 @@ function! far#scroll_preview_window(steps) abort "{{{
 endfunction "}}}
 
 function! far#show_preview_window_under_cursor() abort "{{{
+    " disable update of preview when in visual mode
+    " (otherwise visual selection is cancelled by calls to win_gotoid..)
+    if mode() ==# 'v' || mode() ==# 'V' || mode() ==# "\<C-V>"
+        return
+    endif
     call far#tools#log('far#show_preview_window_under_cursor()')
     let b:win_params.preview_on = b:win_params.auto_preview
 
@@ -523,8 +528,10 @@ function! far#show_preview_window_under_cursor() abort "{{{
     endif
 
     if transbuf
+        " block entered when previewed buffer is not already opened
         set nobuflisted
-        set filetype=off
+        " commenting otherwise some files (hpp files) do not have their syntax set when previewed
+        " set filetype=off
         set bufhidden=delete
     endif
     if refrbuf
@@ -535,6 +542,8 @@ function! far#show_preview_window_under_cursor() abort "{{{
         call far#tools#log('synbuf:'.syncmd)
         exec syncmd
     endif
+    " REF_SYNTAX_FIX
+    doautocmd BufReadPost
 
     call setpos('.', [bufnr('%'), ctxs[2].lnum, ctxs[2].cnum, 0])
 
@@ -629,6 +638,7 @@ function! far#jump_buffer_under_cursor() abort "{{{
                 " Open target file in new window
                 exe 'edit '.fname
             endif
+            " REF_SYNTAX_FIX
             " 'exe edit' does not trigger autocmds by default (mostly syntax is not applied on (some?) files, ex: hpp files)
             " doautocmd: apply matching autocmds for given event on current file
             " It seems there is no problem with other autocmd events (FileType for default // comment for jsons, BufEnter /** carriage return, etc...)
@@ -1167,7 +1177,7 @@ function! far#find(far_params, xargs) "{{{
     endif
 
 
-    " let far_params['regexp'] = 1
+    let far_params['regexp'] = 1
 
     let cmdargs = []
     let win_params = s:create_win_params()
