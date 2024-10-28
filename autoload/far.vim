@@ -629,6 +629,9 @@ function! far#jump_buffer_under_cursor() abort "{{{
                 " Open target file in new window
                 exe 'edit '.fname
             endif
+            " 'exe edit' does not trigger autocmds by default (mostly syntax is not applied on (some?) files, ex: hpp files)
+            " doautocmd: apply matching autocmds for given event on current file
+            doautocmd BufReadPost
         endif
     endif
     " if new_win
