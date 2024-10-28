@@ -631,6 +631,7 @@ function! far#jump_buffer_under_cursor() abort "{{{
             endif
             " 'exe edit' does not trigger autocmds by default (mostly syntax is not applied on (some?) files, ex: hpp files)
             " doautocmd: apply matching autocmds for given event on current file
+            " It seems there is no problem with other autocmd events (FileType for default // comment for jsons, BufEnter /** carriage return, etc...)
             doautocmd BufReadPost
         endif
     endif
