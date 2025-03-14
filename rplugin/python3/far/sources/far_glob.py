@@ -16,7 +16,7 @@ def parse_or(rules_origin):
     # original draft: \(cpp\|hpp\) instead of (cpp|hpp)
     # but cannot put escaped characters in file_mask
     #regex = "(?P<pre>.*)(?P<or>\\\\\((\w+\\\\\|)*\w+\\\\\))(?P<post>.*)"
-    regex = "(?P<pre>.*)(?P<or>\((\w+\|)*\w+\))(?P<post>.*)"
+    regex = r"(?P<pre>.*)(?P<or>\((\w+\|)*\w+\))(?P<post>.*)"
     rgx = re.compile(regex)
     new_rules = []
     added_new_rule = False
