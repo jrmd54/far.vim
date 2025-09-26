@@ -515,6 +515,7 @@ function! far#show_preview_window_under_cursor() abort "{{{
         let preview_winnr = winnr()
         let w:far_preview_win = 1
         let w:far_bufnr = far_bufnr
+        setlocal buftype=popup   " 'hack' to filter this window in context.vim plugin
         call setbufvar(far_bufnr, 'far_preview_winid', win_getid(preview_winnr))
         call setwinvar(win_id2win(far_winid), 'far_preview_winid', win_getid(preview_winnr))
         call s:check_far_window_to_resize(far_bufnr)
